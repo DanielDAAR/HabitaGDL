@@ -4,6 +4,17 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+import unicodedata
+
+
+def norm_mun(s: Optional[str]) -> str:
+    """Normaliza nombre de municipio: mayúsculas, sin acentos, sin espacios extra.
+    S0-fix: CLUES trae 'ZAPOPAN'/'TONALA' y el Enum trae 'Zapopan'/'Tonalá';
+    sin normalizar, HealthEstablishment.is_zgm siempre era False."""
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", str(s).strip().upper())
+    return "".join(c for c in s if not unicodedata.combining(c))
 
 
 class MunicipioZMG(str, Enum):
@@ -90,14 +101,14 @@ class IterLocalidad:
     
     @property
     def is_zgm(self) -> bool:
-        return self.nom_mun in [m.value for m in MunicipioZMG]
-    
+        return norm_mun(self.nom_mun) in [norm_mun(m.value) for m in MunicipioZMG]
+
     @property
     def municipio_enum(self) -> Optional[MunicipioZMG]:
-        try:
-            return MunicipioZMG(self.nom_mun)
-        except ValueError:
-            return None
+        for m in MunicipioZMG:
+            if norm_mun(m.value) == norm_mun(self.nom_mun):
+                return m
+        return None
 
 
 @dataclass
@@ -170,7 +181,7 @@ class HealthEstablishment:
     
     @property
     def is_zgm(self) -> bool:
-        return self.municipio in [m.value for m in MunicipioZMG]
+        return norm_mun(self.municipio) in [norm_mun(m.value) for m in MunicipioZMG]
 
 
 @dataclass
@@ -199,9 +210,21 @@ class IIEGMunicipio:
 
 @dataclass
 class INEGIService:
-    """Basic services/infrastructure variable from INEGI"""
+    """Viviendas por entidad según un servicio (bloque del export INEGI).
+
+    S0: el XLS 'INEGI_exporta_...' NO trae 59 variables con datos; trae UNA
+    consulta real ('Disponibilidad de energía eléctrica' por entidad) + la
+    lista del menú como filas sin valores. Este modelo guarda ese bloque con
+    su fila nacional y su fila Jalisco. Las demás variables de servicios para
+    la ZMG salen de ITER (VPH_DREN, VPH_CISTER, etc. en iter_zgm.parquet)."""
     variable: str
+    entidad_clave: str = ""
+    entidad: str = ""
     total: Optional[float] = None
+    disponen: Optional[float] = None
+    no_disponen: Optional[float] = None
+    no_especificado: Optional[float] = None
+    pct_disponen: Optional[float] = None
     raw: Dict[str, Any] = field(default_factory=dict)
 
 

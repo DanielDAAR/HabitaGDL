@@ -23,7 +23,15 @@ def parse_stations(df: pd.DataFrame) -> List[AQStation]:
     stations = []
     for _, row in df.iterrows():
         code = str(row.get("Abreviatura", "")).strip()
-        if not code or code == "nan":
+        name = str(row.get("Estación", "")).strip()
+        # S0-fix: en 3 filas (COU/SAN/SMT) la hoja Param trae las columnas
+        # Estación<->Abreviatura cruzadas (código en Estación, nombre en
+        # Abreviatura). Si Abreviatura parece nombre y Estación parece código,
+        # se intercambian. Sin esto se perdían COU+SAN+SMT (8,784 lecturas c/u).
+        if len(code) > 3 and len(name) == 3:
+            code, name = name, code
+        code = code.upper()
+        if not code or code == "NAN":
             continue
         
         coords = str(row.get("Coordenadas", ""))
@@ -42,7 +50,7 @@ def parse_stations(df: pd.DataFrame) -> List[AQStation]:
         
         stations.append(AQStation(
             code=code,
-            name=str(row.get("Estación", "")).strip(),
+            name=name,
             pollutants=pollutants,
             meteo=meteo,
             lat=lat or 0,

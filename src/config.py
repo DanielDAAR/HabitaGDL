@@ -62,9 +62,9 @@ AQ_STATIONS = {
     "PIN": {"name": "Las Pintas", "municipio": "El Salto", "lat": 20.576708, "lon": -103.326533},
     "SAN": {"name": "Santa Anita", "municipio": "Tlajomulco de Zúñiga", "lat": 20.551970, "lon": -103.447256},
     "SFE": {"name": "Santa Fe", "municipio": "Tlajomulco de Zúñiga", "lat": 20.528954, "lon": -103.377180},
-    "SMT": {"name": "San Martín", "municipio": "Zapopan", "lat": 0, "lon": 0},  # Need coords
-    "TLA": {"name": "Tlaquepaque", "municipio": "San Pedro Tlaquepaque", "lat": 0, "lon": 0},
-    "VAL": {"name": "Vallarta", "municipio": "Puerto Vallarta", "lat": 0, "lon": 0},  # Outside ZMG
+    "SMT": {"name": "Santa Margarita", "municipio": "Zapopan", "lat": 20.723836, "lon": -103.431768},  # S0: coords reales de hoja Param
+    "TLA": {"name": "Tlaquepaque", "municipio": "San Pedro Tlaquepaque", "lat": 20.640941, "lon": -103.312497},  # S0: coords reales de hoja Param
+    "VAL": {"name": "Vallarta", "municipio": "Puerto Vallarta", "lat": 20.680141, "lon": -103.398572},  # Fuera de ZMG: solo referencia
 }
 
 # Pollutants of interest

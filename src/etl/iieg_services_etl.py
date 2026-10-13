@@ -86,35 +86,71 @@ def load_zgm_iieg_df() -> pd.DataFrame:
 
 
 def load_services() -> pd.DataFrame:
-    """Load INEGI basic services data"""
-    df = pd.read_excel(PATHS["services"])
-    return df
+    """Load INEGI basic services export (header=None: la primera fila es dato).
+
+    S0: el archivo trae UNA consulta real (bloque: fila 'Consulta de:...',
+    fila encabezado con 'Total|Disponen...', filas por entidad, fila FUENTE)
+    precedida por la lista del menú del exportador (filas sin valores)."""
+    return pd.read_excel(PATHS["services"], header=None)
+
+
+def _to_float(val):
+    if pd.isna(val):
+        return None
+    if isinstance(val, str):
+        val = val.replace(",", "").replace(" ", "").replace("$", "")
+        if val in ("", "-", "N.D.", "ND"):
+            return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
 
 
 def parse_services(df: pd.DataFrame) -> List[INEGIService]:
-    """Parse services variables"""
-    services = []
+    """Extrae el bloque de datos: variable (de 'Consulta de:... Según: X'),
+    fila nacional + fila Jalisco con total/disponen/no_disponen/no_esp."""
+    variable = "Servicio INEGI (ver Consulta de:)"
     for _, row in df.iterrows():
-        var_name = str(row.iloc[0]).strip()
-        if not var_name or var_name == "nan":
+        cell = str(row.iloc[0]) if pd.notna(row.iloc[0]) else ""
+        if cell.startswith("Consulta de:"):
+            # '... Según: Disponibilidad de energía eléctrica'
+            variable = cell.split("Según:")[-1].strip() if "Según:" in cell else cell
+            break
+
+    header_idx = None
+    for i, row in df.iterrows():
+        if str(row.iloc[2]) == "Total" and str(row.iloc[3]).startswith("Disponen"):
+            header_idx = i
+            break
+    if header_idx is None:
+        return []
+
+    services = []
+    for i in range(header_idx + 1, len(df)):
+        row = df.iloc[i]
+        nombre = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
+        if nombre.startswith("FUENTE") or (pd.isna(row.iloc[1]) and pd.isna(row.iloc[2])):
+            break
+        clave = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
+        es_nacional = clave == ""
+        if es_nacional and nombre != "Total":
             continue
-        
-        # Try to extract numeric value from first data column
-        total = None
-        for col in df.columns[1:]:
-            val = row[col]
-            if pd.notna(val):
-                try:
-                    total = float(val)
-                    break
-                except (ValueError, TypeError):
-                    pass
-        
+        total = _to_float(row.iloc[2])
+        disp = _to_float(row.iloc[3])
         services.append(INEGIService(
-            variable=var_name,
+            variable=variable,
+            entidad_clave=clave if clave else "00",
+            entidad="Nacional" if es_nacional else nombre,
             total=total,
-            raw=row.to_dict(),
+            disponen=disp,
+            no_disponen=_to_float(row.iloc[4]),
+            no_especificado=_to_float(row.iloc[5]),
+            pct_disponen=round(disp / total * 100, 2) if total else None,
+            raw={},
         ))
+        if not es_nacional and (clave == "14" or nombre == "Jalisco"):
+            break  # con Nacional + Jalisco basta para la tesis/ZMG
     return services
 
 
@@ -125,11 +161,15 @@ def process_iieg() -> Dict:
 
 
 def process_services() -> Dict:
-    """Process INEGI services data"""
+    """Process INEGI services data (bloque energía eléctrica: Nacional + Jalisco)"""
     df_raw = load_services()
     services = parse_services(df_raw)
-    df = pd.DataFrame([s.__dict__ for s in services])
-    return {"records": df, "raw": df_raw}
+    data = []
+    for s in services:
+        d = s.__dict__.copy()
+        d.pop("raw", None)  # dict vacío: pyarrow no lo escribe
+        data.append(d)
+    return {"records": pd.DataFrame(data), "raw": df_raw}
 
 
 def save_processed_iieg(results: Dict) -> None:

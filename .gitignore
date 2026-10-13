@@ -6,3 +6,5 @@ venv/
 .DS_Store
 Thumbs.db
 *.tmp
+# Descargas crudas reproducibles (ver scripts en docs): no se commitean
+Mapas/*.zip

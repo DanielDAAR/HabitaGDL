@@ -5,3 +5,4 @@ xlrd>=2.0.0
 lxml>=4.9.0
 pyarrow>=12.0.0
 numpy>=1.24.0
+geopandas>=1.0.0

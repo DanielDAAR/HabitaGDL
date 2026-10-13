@@ -12,7 +12,8 @@ from .etl.air_quality_etl import process_air_quality, save_processed as save_aq
 from .etl.health_etl import process_health, save_processed as save_health
 from .etl.iieg_services_etl import process_iieg, process_services, save_processed_iieg, save_processed_services
 from .etl.schools_etl import process_schools, save_processed_schools
-from .iht import calcular_iht, save_iht
+from .etl.ageb_etl import process_ageb, save_processed_ageb
+from .iht import calcular_iht, save_iht, process_iht_ageb, save_processed_iht_ageb
 from .config import PROCESSED_DIR, ZMG_MUNICIPIOS
 
 
@@ -116,6 +117,20 @@ def run_iht():
     return df
 
 
+def run_geo_etl():
+    """Run AGEB ETL + IHT x AGEB join"""
+    print("=" * 50)
+    print("Running AGEB ETL + IHT join...")
+    print("=" * 50)
+
+    ageb = process_ageb()
+    save_processed_ageb(ageb)
+    iht_ageb = process_iht_ageb()
+    save_processed_iht_ageb(iht_ageb)
+
+    return iht_ageb
+
+
 def run_all():
     """Run all ETL processes"""
     print("=" * 60)
@@ -167,6 +182,12 @@ def run_all():
     except Exception as e:
         print(f"ERROR in IHT: {e}")
         results["iht"] = None
+
+    try:
+        results["geo"] = run_geo_etl()
+    except Exception as e:
+        print(f"ERROR in GEO: {e}")
+        results["geo"] = None
     
     print("\n" + "=" * 60)
     print("PIPELINE COMPLETE")
@@ -185,7 +206,7 @@ def main():
         "step",
         nargs="?",
         choices=["all", "iter", "air", "health", "iieg", "services",
-                 "schools", "iht"],
+                 "schools", "iht", "geo"],
         default="all",
         help="ETL step to run",
     )
@@ -207,6 +228,8 @@ def main():
         run_schools_etl()
     elif args.step == "iht":
         run_iht()
+    elif args.step == "geo":
+        run_geo_etl()
 
 
 if __name__ == "__main__":

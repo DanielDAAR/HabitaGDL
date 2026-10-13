@@ -11,6 +11,8 @@ from .etl.iter_etl import load_iter_full, filter_zgm, iter_localidades_zgm, iter
 from .etl.air_quality_etl import process_air_quality, save_processed as save_aq
 from .etl.health_etl import process_health, save_processed as save_health
 from .etl.iieg_services_etl import process_iieg, process_services, save_processed_iieg, save_processed_services
+from .etl.schools_etl import process_schools, save_processed_schools
+from .iht import calcular_iht, save_iht
 from .config import PROCESSED_DIR, ZMG_MUNICIPIOS
 
 
@@ -90,6 +92,30 @@ def run_services_etl():
     return results
 
 
+def run_schools_etl():
+    """Run Schools ETL"""
+    print("=" * 50)
+    print("Running Schools ETL...")
+    print("=" * 50)
+
+    results = process_schools()
+    save_processed_schools(results)
+
+    return results
+
+
+def run_iht():
+    """Run IHT engine"""
+    print("=" * 50)
+    print("Running IHT engine...")
+    print("=" * 50)
+
+    df = calcular_iht()
+    save_iht(df)
+
+    return df
+
+
 def run_all():
     """Run all ETL processes"""
     print("=" * 60)
@@ -129,6 +155,18 @@ def run_all():
     except Exception as e:
         print(f"ERROR in Services ETL: {e}")
         results["services"] = None
+
+    try:
+        results["schools"] = run_schools_etl()
+    except Exception as e:
+        print(f"ERROR in Schools ETL: {e}")
+        results["schools"] = None
+
+    try:
+        results["iht"] = run_iht()
+    except Exception as e:
+        print(f"ERROR in IHT: {e}")
+        results["iht"] = None
     
     print("\n" + "=" * 60)
     print("PIPELINE COMPLETE")
@@ -146,7 +184,8 @@ def main():
     parser.add_argument(
         "step",
         nargs="?",
-        choices=["all", "iter", "air", "health", "iieg", "services"],
+        choices=["all", "iter", "air", "health", "iieg", "services",
+                 "schools", "iht"],
         default="all",
         help="ETL step to run",
     )
@@ -164,6 +203,10 @@ def main():
         run_iieg_etl()
     elif args.step == "services":
         run_services_etl()
+    elif args.step == "schools":
+        run_schools_etl()
+    elif args.step == "iht":
+        run_iht()
 
 
 if __name__ == "__main__":

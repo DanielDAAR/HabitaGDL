@@ -34,10 +34,10 @@ src/
 | Stage | Focus | Status |
 |-------|-------|--------|
 | 1 | Vivienda y Territorio (INEGI ITER) | ✅ ETL done |
-| 2 | Servicios y Movilidad | 🔄 Health done, schools pending |
+| 2 | Servicios y Movilidad | ✅ Health + schools done (5,825), movilidad pendiente |
 | 3 | Seguridad y Riesgos | ⏳ Crime, flood maps |
-| 4 | Medio Ambiente | ✅ Air quality done, meteorology pending |
-| 5 | Índice y Recomendaciones | ⏳ IHT algorithm |
+| 4 | Medio Ambiente | ✅ Air quality done (114,192 lecturas, 13 estaciones) |
+| 5 | Índice y Recomendaciones | ✅ IHT v1 done (5/8 dims, cobertura 5/8, media 57.3) + costo-hab pendiente |
 
 ## Commands
 

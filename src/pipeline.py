@@ -12,6 +12,7 @@ from .etl.air_quality_etl import process_air_quality, save_processed as save_aq
 from .etl.health_etl import process_health, save_processed as save_health
 from .etl.iieg_services_etl import process_iieg, process_services, save_processed_iieg, save_processed_services
 from .etl.schools_etl import process_schools, save_processed_schools
+from .etl.crime_etl import process_crime, save_processed_crime
 from .etl.ageb_etl import process_ageb, save_processed_ageb
 from .iht import calcular_iht, save_iht, process_iht_ageb, save_processed_iht_ageb
 from .config import PROCESSED_DIR, ZMG_MUNICIPIOS
@@ -105,6 +106,22 @@ def run_schools_etl():
     return results
 
 
+def run_crime_etl():
+    """Run SESNSP crime ETL (descarga oficial, sin scraping)"""
+    print("=" * 50)
+    print("Running Crime ETL...")
+    print("=" * 50)
+
+    try:
+        results = process_crime()
+    except FileNotFoundError as e:
+        print(f"Omitido: {e}")
+        return None
+    save_processed_crime(results)
+
+    return results
+
+
 def run_iht():
     """Run IHT engine"""
     print("=" * 50)
@@ -178,6 +195,12 @@ def run_all():
         results["schools"] = None
 
     try:
+        results["crime"] = run_crime_etl()
+    except Exception as e:
+        print(f"ERROR in Crime ETL: {e}")
+        results["crime"] = None
+
+    try:
         results["iht"] = run_iht()
     except Exception as e:
         print(f"ERROR in IHT: {e}")
@@ -206,7 +229,7 @@ def main():
         "step",
         nargs="?",
         choices=["all", "iter", "air", "health", "iieg", "services",
-                 "schools", "iht", "geo"],
+                 "schools", "crime", "iht", "geo"],
         default="all",
         help="ETL step to run",
     )
@@ -226,6 +249,8 @@ def main():
         run_services_etl()
     elif args.step == "schools":
         run_schools_etl()
+    elif args.step == "crime":
+        run_crime_etl()
     elif args.step == "iht":
         run_iht()
     elif args.step == "geo":

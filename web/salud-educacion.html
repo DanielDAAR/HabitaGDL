@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HabitaGDL — Salud y escuelas cerca</title><link rel="icon" href="data:,"><link rel="stylesheet" href="style.css"></head><body>
+<header><b>HabitaGDL</b><nav><a href="index.html">Mapa</a><a href="vivienda.html">Vivienda</a><a class="on" href="salud-educacion.html">Salud</a><a href="seguridad-riesgos.html">Riesgos</a><a href="aire.html">Aire</a><a href="metodologia.html">Info</a></nav></header>
+<div class="wrap"><h1>¿Qué hay cerca de tu zona?</h1>
+<p class="mut">Elige un municipio y te mostramos los 10 servicios más cercanos. Sin escribir coordenadas.</p>
+<div class="card">Zona <select id="zona"></select> Buscar en <select id="r"><option value="2">2 km (caminando)</option><option value="5" selected>5 km (en carro)</option><option value="10">10 km</option></select>
+<details><summary class="mut">Filtros: tipo, nivel, público/privado</summary>
+<div style="margin-top:6px;display:grid;gap:6px">
+Tipo salud <select id="ts"><option value="">Todos</option><option value="HOSPITALIZACIÓN">Hospitalización</option><option value="CONSULTA EXTERNA">Consulta externa</option><option value="ASISTENCIA SOCIAL">Asistencia social</option><option value="APOYO">Apoyo</option></select>
+Nivel escuela <select id="ne"><option value="">Todos</option><option>PREESCOLAR</option><option>PRIMARIA</option><option>SECUNDARIA</option><option>BACHILLERATO</option><option>LICENCIATURA</option></select>
+Sostenimiento <select id="so"><option value="">Todos</option><option value="PÚBLICO">Público</option><option value="PRIVADO">Privado</option></select>
+</div></details>
+<button onclick="go()" style="margin-top:6px">Buscar</button></div>
+<div class="grid2"><div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg> Salud</h2><div id="s" class="mut">Pulsa Buscar…</div></div><div class="card"><h2><svg class="ic" viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5L2 9z"/><path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/><path d="M22 9v5"/></svg> Escuelas</h2><div id="e" class="mut">Pulsa Buscar…</div></div></div>
+<details><summary>Búsqueda avanzada por coordenadas</summary>
+Lat <input id="lat" type="number" step="any"> Lon <input id="lon" type="number" step="any"> <button onclick="goXY()">Buscar por punto</button></details></div>
+<script>
+const ZONAS={"Guadalajara Centro":[20.6738,-103.3332],"Zapopan Centro":[20.7196,-103.3554],"Tlaquepaque Centro":[20.6409,-103.3125],"Tonalá Centro":[20.6317,-103.2568],"Tlajomulco - Santa Fe":[20.5290,-103.3772]};
+const z=document.getElementById("zona");Object.keys(ZONAS).forEach(k=>z.add(new Option(k,k)));
+try{const u=new URLSearchParams(location.search),la=parseFloat(u.get("lat")),lo=parseFloat(u.get("lon"));
+if(Number.isFinite(la)&&Number.isFinite(lo)){z.add(new Option("Punto elegido en el mapa","MAPA"));ZONAS["MAPA"]=[la,lo];z.value="MAPA";}}catch(e){}
+z.onchange=()=>{const[la,lo]=ZONAS[z.value];document.getElementById("lat").value=la;document.getElementById("lon").value=lo;};
+z.onchange();go();
+async function go(){const[la,lo]=ZONAS[z.value];document.getElementById("lat").value=la;document.getElementById("lon").value=lo;goXY();}
+async function goXY(){const lat=document.getElementById("lat").value,lon=document.getElementById("lon").value,r=document.getElementById("r").value;
+const ts=document.getElementById("ts").value,ne=document.getElementById("ne").value,so=document.getElementById("so").value;
+const s=await (await fetch(`/api/v1/salud?lat=${lat}&lon=${lon}&radio=${r}&tipo=${encodeURIComponent(ts)}`)).json();
+const e=await (await fetch(`/api/v1/escuelas?lat=${lat}&lon=${lon}&radio=${r}&nivel=${encodeURIComponent(ne)}&sost=${encodeURIComponent(so)}`)).json();
+document.getElementById("s").innerHTML=s.items.length?"<table>"+s.items.map(x=>`<tr><td>${(x.nombre||"").slice(0,36)}</td><td class=mut>${(x.tipo_establecimiento||"").replace("DE ","").slice(0,16)}</td><td>${x.dist_km} km</td></tr>`).join("")+"</table>":"Nada en este radio. Amplía a 10 km o quita filtros.";
+document.getElementById("e").innerHTML=e.items.length?"<table>"+e.items.map(x=>`<tr><td>${(x.nombre||"").slice(0,40)}</td><td class=mut>${x.nivel||""}</td><td>${x.dist_km} km</td></tr>`).join("")+"</table>":"Nada en este radio. Amplía a 10 km.";}
+</script></body></html>

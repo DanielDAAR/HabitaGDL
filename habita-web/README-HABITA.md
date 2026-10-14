@@ -1,5 +1,7 @@
 # habita-web — Scaffold S0/S1 (Next 16 + TS + Tailwind + MapLibre + Recharts + DuckDB-WASM)
 
+> **EN PAUSA (decisión oct-2026):** el entregable demo es `web/` vanilla servido por FastAPI (costo $0, sin build, ya funcional con mapa + IHT + comparador). Este scaffold Next queda como alternativa futura; no construir S2 en paralelo para no duplicar trabajo.
+
 Build verde verificado 13-oct-2026 (`npm run build`, Turbopack, prerender estático).
 
 ## S2 (siguiente): orden de construcción

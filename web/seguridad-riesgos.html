@@ -1,0 +1,17 @@
+<!DOCTYPE html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HabitaGDL — Seguridad y riesgos</title><link rel="icon" href="data:,"><link rel="stylesheet" href="style.css"></head><body>
+<header><b>HabitaGDL</b><nav><a href="index.html">Mapa</a><a href="vivienda.html">Vivienda</a><a href="salud-educacion.html">Salud</a><a class="on" href="seguridad-riesgos.html">Riesgos</a><a href="aire.html">Aire</a><a href="metodologia.html">Info</a></nav></header>
+<div class="wrap"><h1>Seguridad e inundaciones</h1>
+<div class="card"><h2>Delitos por municipio (SESNSP, tasa /100k hab)</h2><div id="t" class="mut">Cargando…</div></div>
+<div class="card"><h2>Inundaciones</h2><p><svg class="ic" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18.5v.5"/></svg> <span class="badge">en camino</span> <span class="mut">Mapa oficial en PDF, falta pasarlo a digital. No cuenta en el índice todavía.</span></p></div>
+<div class="card"><p class="mut">Fuente: SESNSP fuero común municipal + población Censo 2020. Menos tasa = más puntos en el índice.</p><a href="index.html">Volver al mapa →</a></div></div>
+<script>
+fetch("/api/v1/seguridad").then(r=>{if(!r.ok)throw 0;return r.json();}).then(d=>{
+if(!d.items.length)throw 0;
+const yrs=[...new Set(d.items.map(x=>x.anio))].sort().reverse().slice(0,3);
+let h="<table><tr><td><b>Municipio</b></td>"+yrs.map(y=>`<td><b>${y}</b></td>`).join("")+"</tr>";
+const by={};d.items.forEach(x=>{(by[x.municipio_norm]=by[x.municipio_norm]||{})[x.anio]=x.tasa_100k;});
+Object.keys(by).sort().forEach(m=>{h+=`<tr><td>${m}</td>`+yrs.map(y=>`<td>${by[m][y]??"—"}</td>`).join("")+"</tr>";});
+document.getElementById("t").innerHTML=h+"</table>";}).catch(()=>{
+document.getElementById("t").innerHTML='<span class="badge">en camino</span> <span class="mut">Descarga el CSV municipal del SESNSP a <b>Seguridad/SESNSP_municipal.csv</b> y corre <b>python -m src.pipeline crime</b>.</span>';});
+</script></body></html>

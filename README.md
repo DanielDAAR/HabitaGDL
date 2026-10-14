@@ -53,7 +53,18 @@ python -m src.pipeline air       # Air quality
 python -m src.pipeline health    # Health establishments
 python -m src.pipeline iieg      # IIEG household data
 python -m src.pipeline services  # INEGI services
+python -m src.pipeline schools   # Schools
+python -m src.pipeline crime     # SESNSP crime (needs Seguridad/SESNSP_municipal.csv)
+python -m src.pipeline iht       # IHT engine
+python -m src.pipeline geo       # AGEB + IHT join
+
+# Serve API + web app (http://localhost:8000)
+python -m uvicorn api.main:app --port 8000
 ```
+
+## Web app (`web/`, served by the API)
+
+6 static pages, no build: **Mapa** (IHT + sliders + top 10 + comparador A/B + satélite + links compartibles), **Vivienda**, **Salud**, **Riesgos**, **Aire**, **Info**. IHT recalculates in the browser from precomputed `S_i`.
 
 ## Output (data/processed/)
 
@@ -106,13 +117,12 @@ python -m src.pipeline services  # INEGI services
 
 ## Next Steps
 
-- [ ] Process `concentrado_escuelas.xls` (education data)
-- [ ] Integrate crime statistics (SESNSP)
+- [x] Process `concentrado_escuelas.xls` (5,825 schools)
+- [x] IHT engine (coverage 5/8, mean 57.3) + API + web
+- [ ] Download SESNSP municipal CSV → `python -m src.pipeline crime iht geo` (browser download; gov blocks bots)
 - [ ] Process flood risk maps (PDF → GeoJSON)
-- [ ] Add SHF housing price index parsing
-- [ ] Build IHT calculation engine
-- [ ] Create spatial joins for maps (Mapas/ directory)
-- [ ] Add meteorological data (CONAGUA/SMN)
+- [ ] Add SHF housing price index parsing (costo-habitabilidad needs per-colonia prices)
+- [ ] Movilidad (SITEUR) + meteorological data (CONAGUA/SMN)
 
 ## Notes
 

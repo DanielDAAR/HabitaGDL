@@ -21,6 +21,9 @@ PATHS = {
     "iieg": RAW_DIR / "Información estatal integrada" / "IIEGHogCaracteristicas.xlsx",
     "shf_pdf": RAW_DIR / "Mercado inmobiliario" / "I_ndice_SHF_T2_2026.pdf",
     "flood_pdf": RAW_DIR / "Riesgos territoriales" / "Inundaciones70x60.pdf",
+    # SESNSP fuero común municipal (CSV descarga directa, sin scraping):
+    # https://www.gob.mx/sesnsp/acciones-y-programas/datos-abiertos-de-incidencia-delictiva
+    "sesnsp": RAW_DIR / "Seguridad" / "SESNSP_municipal.csv",
 }
 
 # ZMG municipalities (INEGI names - exact match from ITER data)

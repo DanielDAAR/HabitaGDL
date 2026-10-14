@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="es-MX"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HabitaGDL — ¿Dónde vivir en la ZMG?</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+</head><body>
+<header><b>HabitaGDL</b><span class="mut">¿Dónde vivir en la ZMG?</span>
+<nav><a class="on" href="index.html">Mapa</a><a href="vivienda.html">Vivienda</a><a href="salud-educacion.html">Salud</a><a href="seguridad-riesgos.html">Riesgos</a><a href="aire.html">Aire</a><a href="metodologia.html">Info</a></nav></header>
+<div class="layout">
+<aside>
+<div class="card"><h3><span class="step">1</span>¿Qué te importa?</h3>
+<div class="presets">
+<button data-p="default" class="on">Equilibrado</button><button data-p="familias">Familia</button><button data-p="aire">Aire limpio</button>
+</div>
+<div id="sliders"></div>
+<details><summary>Movilidad, seguridad y riesgos: sin datos en v1</summary>
+<p class="mut">No se califican todavía. Cuando haya SITEUR, SESNSP e inundación vectorizada se activan solos.</p></details>
+</div>
+<div class="card"><h3><span class="step">2</span>¿Dónde buscas?</h3>
+<input id="q" type="text" placeholder="Colonia o zona… (ej. La Tijera)">
+<select id="mun" style="margin-top:6px"><option value="">Toda la ZMG</option><option>Guadalajara</option><option>Zapopan</option><option>San Pedro Tlaquepaque</option><option>Tonalá</option><option>Tlajomulco de Zúñiga</option></select>
+</div>
+<div class="card"><h3><span class="step">3</span>Las 10 mejores para ti</h3><ol class="top10" id="top"></ol>
+<button id="share" style="width:100%"><svg class="ic" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg> Copiar link de esta búsqueda</button> <span id="share-ok" class="mut"></span>
+<div class="legend"><span><i style="background:#0e7c5b"></i> muy bien</span><span><i style="background:#7fb069"></i> bien</span><span><i style="background:#e6c34a"></i> regular</span><span><i style="background:#e07b39"></i> mal</span><span><i style="background:#ccc"></i> sin datos</span></div>
+</div>
+<div class="card"><h3><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.8-5.4 2.8 1-6.1L3.2 9.5l6.1-.9L12 3z"/></svg> Mis favoritas (<span id="favcount">0</span>)</h3><details id="favwrap"><summary class="mut">Ver guardadas</summary><ol class="top10" id="favs"></ol></details></div>
+<div class="card"><details><summary><b>Descubre tu perfil</b> <span class="mut">3 preguntas, te ajusto los pesos</span></summary>
+<div style="margin-top:8px;font-size:13px">
+<p style="margin:6px 0">¿Viven niños en casa?<br><label><input type="radio" name="q1" value="fam"> Sí</label> <label><input type="radio" name="q1" value="no" checked> No</label></p>
+<p style="margin:6px 0">¿Alguien con asma o alergias?<br><label><input type="radio" name="q2" value="aire"> Sí</label> <label><input type="radio" name="q2" value="no" checked> No</label></p>
+<p style="margin:6px 0">¿Qué pesa más para ti?<br><select id="q3"><option value="eq">Todo equilibrado</option><option value="fam">Escuelas y salud</option><option value="aire">Aire limpio</option><option value="casa">Casa y servicios</option></select></p>
+<button onclick="quiz()" style="width:100%">Aplicar mi perfil</button> <span id="quiz-ok" class="mut"></span>
+</div></details></div>
+</aside>
+<main><div id="map"></div><button id="sat" style="position:absolute;top:12px;left:12px;z-index:5"></button><div id="drawer"></div></main>
+</div>
+<script>
+const ACTIVAS=["vivienda","servicios","salud","educacion","ambiente"];
+const TODAS=[...ACTIVAS,"movilidad","seguridad","riesgos"];
+const AMABLE={vivienda:"Casa",servicios:"Servicios",salud:"Salud cerca",educacion:"Escuelas cerca",ambiente:"Aire limpio"};
+let PESOS={vivienda:.15,servicios:.18,salud:.15,educacion:.14,ambiente:.12};
+const PRESETS={default:{vivienda:.15,servicios:.18,salud:.15,educacion:.14,ambiente:.12},familias:{vivienda:.15,servicios:.15,salud:.20,educacion:.20,ambiente:.05},aire:{vivienda:.10,servicios:.10,salud:.15,educacion:.10,ambiente:.35}};
+let GEO=null,MAP=null,MUN="",Q="",CMPA=null,CMPB=null,CUR=null;
+const FKEY="habitagdl_favs";
+function getFavs(){try{return JSON.parse(localStorage.getItem(FKEY))||[]}catch(e){return[]}}
+function setFavs(a){try{localStorage.setItem(FKEY,JSON.stringify(a))}catch(e){}}
+function toggleFav(){if(!CUR)return;const id=CUR.p.CVE_AGEB;let a=getFavs();a=a.includes(id)?a.filter(x=>x!==id):[...a,id];setFavs(a);renderFavs();show(CUR.p,CUR.c);}
+function renderFavs(){const ol=document.getElementById("favs");if(!ol||!GEO)return;const ids=getFavs();document.getElementById("favcount").textContent=ids.length;ol.innerHTML=ids.length?"":'<li class="mut">Vacío. Abre una ficha y pulsa Guardar.</li>';ids.forEach(id=>{const f=GEO.features.find(x=>x.properties.CVE_AGEB===id);if(!f)return;const p=f.properties;const li=document.createElement("li");li.innerHTML=`<b>${nm(p)}</b> <span class="badge">${p.IHT??"—"}</span><br><span class="mut">${p.NOM_MUN} · quitar: abre su ficha</span>`;li.onclick=()=>{const c=centro(f);MAP.flyTo({center:c,zoom:12});show(p,c);};ol.append(li);});}
+try{const u=new URLSearchParams(location.search);for(const d of ACTIVAS){const v=parseFloat(u.get(d));if(Number.isFinite(v)&&v>=0&&v<=40)PESOS[d]=v/100;}MUN=u.get("mun")||"";Q=(u.get("q")||"").toLowerCase();var ZONA=u.get("zona")||"";var PERFIL=u.get("perfil")||"";var CPA=u.get("a")||"",CPB=u.get("b")||"";}catch(e){var ZONA="";var PERFIL="";var CPA="",CPB="";}
+let _t=null;function syncURL(z){clearTimeout(_t);_t=setTimeout(()=>{const u=new URLSearchParams();for(const d of ACTIVAS)u.set(d,Math.round((PESOS[d]||0)*100));if(MUN)u.set("mun",MUN);if(Q)u.set("q",Q);if(z||ZONA)u.set("zona",z||ZONA);if(CMPA&&CMPB){u.set("a",CMPA.CVE_AGEB);u.set("b",CMPB.CVE_AGEB);}history.replaceState(null,"","?"+u.toString());},300);}
+document.getElementById("share").onclick=async()=>{syncURL();try{await navigator.clipboard.writeText(location.href);document.getElementById("share-ok").textContent="¡copiado!";}catch(e){document.getElementById("share-ok").textContent=location.href;}};
+function ihtOf(p){let s=0,w=0;for(const d of ACTIVAS){const v=p[d];if(v==null)continue;const wt=PESOS[d]||0;s+=v*wt;w+=wt;}return w>0?Math.round(s/w*10)/10:null;}
+function buildSliders(){const c=document.getElementById("sliders");c.innerHTML="";for(const d of ACTIVAS){const r=document.createElement("div");r.className="slider";const lb=document.createElement("span");lb.textContent=AMABLE[d];const inp=document.createElement("input");inp.type="range";inp.min=0;inp.max=40;inp.value=Math.round((PESOS[d]||0)*100);const lab=document.createElement("span");lab.textContent=inp.value;inp.oninput=()=>{PESOS[d]=inp.value/100;lab.textContent=inp.value;refresh();};r.append(lb,inp,lab);c.append(r);}}
+function marcaActiva(n){document.querySelectorAll("[data-p]").forEach(b=>b.classList.toggle("on",b.dataset.p===n));}
+function setPreset(n){PESOS={...PRESETS[n]};marcaActiva(n);buildSliders();refresh();}
+function quiz(){const v=n=>{const e=document.querySelector(`input[name="${n}"]:checked`);return e?e.value:"no";};
+const pts={default:0,familias:0,aire:0};
+if(v("q1")==="fam")pts.familias+=2;if(v("q2")==="aire")pts.aire+=2;
+const q3=document.getElementById("q3").value;
+if(q3==="fam")pts.familias+=1;else if(q3==="aire")pts.aire+=1;else if(q3==="casa")pts.default+=1;
+const win=Object.keys(pts).sort((a,b)=>pts[b]-pts[a])[0];
+setPreset(win);try{const u=new URLSearchParams(location.search);u.set("perfil",win);history.replaceState(null,"","?"+u.toString());}catch(e){}
+document.getElementById("quiz-ok").textContent={default:"Perfil equilibrado",familias:"Perfil familia",aire:"Perfil aire limpio"}[win];}
+document.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{PESOS={...PRESETS[b.dataset.p]};marcaActiva(b.dataset.p);buildSliders();refresh();});
+document.getElementById("mun").onchange=e=>{MUN=e.target.value;refresh();};
+document.getElementById("q").oninput=e=>{Q=e.target.value.toLowerCase();refresh();};
+function centro(f){let xs=[],ys=[];const g=f.geometry;const rec=c=>{if(typeof c[0]==="number"){xs.push(c[0]);ys.push(c[1]);}else c.forEach(rec);};rec(g.coordinates);return [xs.reduce((a,b)=>a+b,0)/xs.length,ys.reduce((a,b)=>a+b,0)/ys.length];}
+async function init(){if(PERFIL&&PRESETS[PERFIL]){PESOS={...PRESETS[PERFIL]};}
+buildSliders();if(PERFIL&&PRESETS[PERFIL])marcaActiva(PERFIL);
+document.getElementById("mun").value=MUN;document.getElementById("q").value=Q;
+const r=await fetch("/api/v1/geo/iht-ageb");GEO=await r.json();
+MAP=new maplibregl.Map({container:"map",style:"https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",center:[-103.35,20.67],zoom:10});
+MAP.addControl(new maplibregl.NavigationControl(), "bottom-right");
+MAP.on("load",()=>{
+MAP.addSource("iht",{type:"geojson",data:GEO});
+MAP.addLayer({id:"fill",type:"fill",source:"iht",paint:{"fill-color":["case",["==",["get","IHT"],null],"#ccc",["<",["get","IHT"],30],"#c0392b",["<",["get","IHT"],45],"#e07b39",["<",["get","IHT"],60],"#e6c34a",["<",["get","IHT"],75],"#7fb069","#0e7c5b"],"fill-opacity":.55}});
+MAP.addLayer({id:"line",type:"line",source:"iht",paint:{"line-color":"#333","line-width":.3,"line-opacity":.35}});
+let SAT=false;
+const IC_SAT='<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7"/></svg> Satélite';
+const IC_MAP='<svg class="ic" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg> Mapa';
+const satBtn=document.getElementById("sat");satBtn.innerHTML=IC_SAT;
+satBtn.onclick=()=>{SAT=!SAT;satBtn.innerHTML=SAT?IC_MAP:IC_SAT;
+if(SAT&&!MAP.getSource("sat")){MAP.addSource("sat",{type:"raster",tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],tileSize:256,attribution:"Esri"});MAP.addLayer({id:"sat-lyr",type:"raster",source:"sat",paint:{"raster-opacity":1}},MAP.getLayer("fill")?"fill":undefined);}
+if(MAP.getLayer("sat-lyr"))MAP.setLayoutProperty("sat-lyr","visibility",SAT?"visible":"none");};
+const pop=new maplibregl.Popup({closeButton:false});
+MAP.on("mousemove","fill",e=>{const p=e.features[0].properties;pop.setLngLat(e.lngLat).setHTML(`<b>${p.nom_loc_ref||p.NOM_MUN}</b><br>IHT ${p.IHT??"sin datos"}`).addTo(MAP);});
+MAP.on("mouseleave","fill",()=>pop.remove());
+MAP.on("click","fill",e=>{ZONA=e.features[0].properties.CVE_AGEB||"";show(e.features[0].properties,centro(e.features[0]));syncURL(ZONA);});
+refresh();if(CPA&&CPB){const fa=GEO.features.find(x=>x.properties.CVE_AGEB===CPA),fb=GEO.features.find(x=>x.properties.CVE_AGEB===CPB);if(fa&&fb){CMPA=fa.properties;const c=centro(fb);MAP.flyTo({center:c,zoom:12});show(fb.properties,c);}}
+else if(ZONA){const f=GEO.features.find(x=>x.properties.CVE_AGEB===ZONA);if(f){const c=centro(f);MAP.flyTo({center:c,zoom:12});show(f.properties,c);}}});}
+function havM(lon1,lat1,lon2,lat2){const R=Math.PI/180;const dLa=(lat2-lat1)*R,dLo=(lon2-lon1)*R;const a=Math.sin(dLa/2)**2+Math.cos(lat1*R)*Math.cos(lat2*R)*Math.sin(dLo/2)**2;return 6371*2*Math.asin(Math.sqrt(a));}
+let ESTS=null;fetch("/api/v1/aire/estaciones").then(r=>r.json()).then(d=>ESTS=d.items).catch(()=>ESTS=null);
+function nearestEst(lon,lat){if(!ESTS)return "";let b=null,bd=1e9;for(const s of ESTS){if(s.lat==null||s.lon==null)continue;const d=havM(lon,lat,s.lon,s.lat);if(d<bd){bd=d;b=s.code;}}return b||"";}
+function pasa(f){const p=f.properties;if(MUN&&p.NOM_MUN!==MUN)return false;if(Q&&!((p.nom_loc_ref||"")+" "+(p.NOM_MUN||"")).toLowerCase().includes(Q))return false;return true;}
+function refresh(){if(!GEO)return;for(const f of GEO.features)f.properties.IHT=ihtOf(f.properties);
+if(MAP&&MAP.getSource("iht"))MAP.getSource("iht").setData(GEO);syncURL();
+const feats=GEO.features.filter(pasa).filter(f=>f.properties.IHT!=null).sort((a,b)=>b.properties.IHT-a.properties.IHT).slice(0,10);
+const ol=document.getElementById("top");ol.innerHTML=feats.length?"":"<li>Sin zonas con estos filtros. Prueba otro municipio.</li>";
+feats.forEach((f,i)=>{const p=f.properties;const li=document.createElement("li");
+li.innerHTML=`<b>${i+1}. ${p.nom_loc_ref||"Zona "+p.CVE_AGEB}</b> <span class="badge">${p.IHT}</span><br><span class="mut">${p.NOM_MUN}</span><div class="bar"><i style="width:${p.IHT}%"></i></div>`;
+li.onclick=()=>{const c=centro(f);ZONA=f.properties.CVE_AGEB||"";MAP.flyTo({center:c,zoom:12});show(p,c);syncURL(ZONA);};ol.append(li);});renderFavs();}
+function nm(p){return p.nom_loc_ref||("Zona "+p.CVE_AGEB);}
+function explain(p){const vs=ACTIVAS.map(d=>({d,v:p[d]})).filter(x=>x.v!=null);
+if(!vs.length||p.IHT==null)return [];
+const mx=vs.reduce((a,b)=>b.v>a.v?b:a),mn=vs.reduce((a,b)=>b.v<a.v?b:a);
+const all=GEO.features.map(f=>f.properties.IHT).filter(v=>v!=null);
+const pct=all.length?Math.round(all.filter(v=>v<=p.IHT).length/all.length*100):null;
+const out=[`Lo más alto aquí es <b>${AMABLE[mx.d]}</b> (${mx.v}).`, `Lo más bajo aquí es <b>${AMABLE[mn.d]}</b> (${mn.v}).`];
+out.push(pct!=null?`Con tus pesos actuales, supera al <b>${pct}%</b> de las ${all.length} zonas medidas.`:`Sin suficientes zonas para comparar.`);
+return out;}
+function cmpPin(){if(CUR){CMPA=CUR.p;show(CUR.p,CUR.c);}}
+function cmpClear(){CMPA=null;CMPB=null;const d=document.getElementById("drawer");d.classList.remove("open");syncURL();}
+function show(p,c){const d=document.getElementById("drawer");CUR={p,c};CMPB=null;
+function show(p,c){const d=document.getElementById("drawer");CUR={p,c};
+if(CMPA&&CMPA.CVE_AGEB!==p.CVE_AGEB){return showCmp(CMPA,p,c);}
+const rows=ACTIVAS.map(x=>`<div class="friendly"><span>${AMABLE[x]}</span><div class="bar"><i style="width:${p[x]||0}%"></i></div><span>${p[x]??"—"}</span></div>`).join("");
+const q=c?`?lat=${c[1].toFixed(4)}&lon=${c[0].toFixed(4)}`:"";const est=c?nearestEst(c[0],c[1]):"";
+const aireHref=est?`aire.html?estacion=${est}`:"aire.html";
+d.innerHTML=`<button onclick="this.parentNode.classList.remove('open')">✕ cerrar</button><h2 style="margin:6px 0">${nm(p)} <span class="badge">${p.IHT??"sin datos"}</span></h2><div class="mut">${p.NOM_MUN} · ${p.nota||""}</div>${rows}<div class="card" style="margin:10px 0 0"><h3>Por qué este número</h3>${explain(p).map(x=>`<p style="margin:4px 0;font-size:13px">· ${x}</p>`).join("")||'<p class="mut">Sin datos suficientes en esta zona.</p>'}</div><p class="mut">0 = peor de la ZMG · 100 = mejor de la ZMG. Solo se comparan zonas con datos.</p>${CMPA?`<p><span class="badge">A fijada: ${nm(CMPA)}</span> <span class="mut">Toca otra zona en el mapa o en el top para comparar.</span></p><button onclick="cmpClear()" style="width:100%">Cancelar comparador</button>`:`<button onclick="cmpPin()" style="width:100%">Comparar con otra zona</button><button onclick="toggleFav()" style="width:100%;margin-top:6px;background:#fff;color:var(--ink);border:1px solid var(--line)">${getFavs().includes(p.CVE_AGEB)?"Quitar de favoritas":"Guardar en favoritas"}</button><button onclick="window.print()" style="width:100%;margin-top:6px;background:#fff;color:var(--ink);border:1px solid var(--line)">Imprimir ficha</button>`}<p><a href="salud-educacion.html${q}">Ver salud y escuelas de esta zona →</a> · <a href="${aireHref}">Ver aire de esta zona →</a></p>`;
+d.classList.add("open");if(c)MAP.flyTo({center:c,zoom:12});}
+function showCmp(a,b,c){const d=document.getElementById("drawer");CMPB=b;syncURL();
+const aI=ihtOf(a),bI=ihtOf(b);
+const win=(x,y)=>x==null||y==null?"":x===y?"empate":x>y?"A":"B";
+let rows=ACTIVAS.map(x=>{const w=win(a[x],b[x]);return `<tr><td>${AMABLE[x]}</td><td${w==="A"?' style="color:var(--acc);font-weight:700"':""}>${a[x]??"—"}</td><td${w==="B"?' style="color:var(--acc);font-weight:700"':""}>${b[x]??"—"}</td></tr>`;}).join("");
+const wI=win(aI,bI);
+d.innerHTML=`<button onclick="cmpClear()">✕ cerrar comparador</button><h2 style="margin:6px 0">A contra B</h2><table><tr><td></td><td><b>A · ${nm(a)}</b><br><span class="mut">${a.NOM_MUN}</span></td><td><b>B · ${nm(b)}</b><br><span class="mut">${b.NOM_MUN}</span></td></tr><tr><td><b>IHT</b></td><td${wI==="A"?' style="color:var(--acc);font-weight:700"':""}>${aI??"—"}</td><td${wI==="B"?' style="color:var(--acc);font-weight:700"':""}>${bI??"—"}</td></tr>${rows}</table><p class="mut">En verde gana cada fila. Mueve los pesos y se recalcula solo.</p><button onclick="CMPA=CUR.p;show(CUR.p,CUR.c)" style="width:100%">Usar B como nueva A</button> <button onclick="window.print()" style="width:100%;margin-top:6px;background:#fff;color:var(--ink);border:1px solid var(--line)">Imprimir comparador</button>`;
+d.classList.add("open");if(c)MAP.flyTo({center:c,zoom:12});}
+init();
+</script></body></html>

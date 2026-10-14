@@ -1,0 +1,20 @@
+<!DOCTYPE html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HabitaGDL — Vivienda y servicios</title><link rel="icon" href="data:,"><link rel="stylesheet" href="style.css"></head><body>
+<header><b>HabitaGDL</b><nav><a href="index.html">Mapa</a><a class="on" href="vivienda.html">Vivienda</a><a href="salud-educacion.html">Salud</a><a href="seguridad-riesgos.html">Riesgos</a><a href="aire.html">Aire</a><a href="metodologia.html">Info</a></nav></header>
+<div class="wrap"><h1>¿Cómo están las casas y servicios?</h1>
+<p class="mut">Promedio de las zonas con datos. 0 = peor de la ZMG, 100 = mejor.</p>
+<div class="card">Municipio <select id="m"></select> <input id="q" type="text" placeholder="Buscar colonia…"></div>
+<div class="grid2"><div class="card"><h2>Promedio del municipio</h2><div id="avg"></div></div>
+<div class="card"><h2>Colonias destacadas</h2><div id="rows"></div></div></div></div>
+<script>
+const MUNS=["Guadalajara","Zapopan","San Pedro Tlaquepaque","Tonalá","Tlajomulco de Zúñiga"];
+const m=document.getElementById("m"),q=document.getElementById("q");
+MUNS.forEach(x=>m.add(new Option(x,x)));
+async function go(){const d=await (await fetch(`/api/v1/localidades?municipio=${encodeURIComponent(m.value)}&limit=200`)).json();
+let v=d.items.filter(x=>x.IHT!=null);
+const f=q.value.toLowerCase();if(f)v=v.filter(x=>(x.nom_loc||"").toLowerCase().includes(f));
+const avg=n=>v.length?(v.reduce((s,x)=>s+(x[n]||0),0)/v.length).toFixed(0):"—";
+document.getElementById("avg").innerHTML=`<table><tr><td>Zonas con datos</td><td>${v.length}</td></tr><tr><td>Casa</td><td>${avg("vivienda")}</td></tr><tr><td>Servicios (agua, luz, drenaje)</td><td>${avg("servicios")}</td></tr><tr><td>Salud cerca</td><td>${avg("salud")}</td></tr><tr><td>Escuelas cerca</td><td>${avg("educacion")}</td></tr><tr><td>Aire limpio</td><td>${avg("ambiente")}</td></tr></table>`;
+document.getElementById("rows").innerHTML="<table>"+[...v].sort((a,b)=>b.IHT-a.IHT).slice(0,8).map(x=>`<tr><td>${(x.nom_loc||"").slice(0,32)}</td><td>${x.IHT}</td></tr>`).join("")+"</table>";}
+m.onchange=go;q.oninput=go;go();
+</script></body></html>

@@ -1,0 +1,22 @@
+<!DOCTYPE html><html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HabitaGDL — Aire por estación</title><link rel="icon" href="data:,"><link rel="stylesheet" href="style.css"></head><body>
+<header><b>HabitaGDL</b><nav><a href="index.html">Mapa</a><a href="vivienda.html">Vivienda</a><a href="salud-educacion.html">Salud</a><a href="seguridad-riesgos.html">Riesgos</a><a class="on" href="aire.html">Aire</a><a href="metodologia.html">Info</a></nav></header>
+<div class="wrap"><h1>¿Dónde se respira mejor?</h1>
+<p class="mut">Promedio diario 2024. Más bajo = más limpio.</p>
+<div class="card"><select id="est"></select> <select id="par"><option value="pm25">PM2.5 (el más dañino)</option><option value="pm10">PM10 (polvo)</option><option value="o3">O3 (ozono)</option><option value="no2">NO2 (tráfico)</option></select>
+<button onclick="load()">Ver</button> <span id="veredicto" class="badge"></span></div>
+<div class="card"><canvas id="cv" width="900" height="240" style="width:100%"></canvas><div id="info" class="mut"></div></div></div>
+<script>
+async function init(){const d=await (await fetch("/api/v1/aire/estaciones")).json();const s=document.getElementById("est");d.items.filter(x=>x.code!=="VAL").forEach(x=>s.add(new Option(x.code+" — "+x.name,x.code)));let pre="CEN";try{const u=new URLSearchParams(location.search);if(u.get("estacion"))pre=u.get("estacion");}catch(e){}s.value=[...s.options].some(o=>o.value===pre)?pre:"CEN";load();}
+async function load(){const e=document.getElementById("est").value,p=document.getElementById("par").value;
+const d=await (await fetch(`/api/v1/aire/lecturas?estacion=${e}&param=${p}&limit=500`)).json();
+const v=d.items.map(x=>+x[p]).filter(Number.isFinite);const c=document.getElementById("cv"),g=c.getContext("2d");g.clearRect(0,0,900,240);
+if(!v.length){document.getElementById("info").textContent="Esta estación no mide ese contaminante. Prueba con otra.";return;}
+const mx=Math.max(...v),mn=Math.min(...v),med=v.reduce((a,b)=>a+b,0)/v.length;
+g.strokeStyle="#0e7c5b";g.lineWidth=2;g.beginPath();v.forEach((y,i)=>{const X=i/(v.length-1)*880+10,Y=220-(y-mn)/(mx-mn||1)*190;i?g.lineTo(X,Y):g.moveTo(X,Y);});g.stroke();
+const malo=(p==="pm25"&&med>25)||(p==="pm10"&&med>45);
+const IC_OK='<svg class="ic" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>',IC_AL='<svg class="ic" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18.5v.5"/></svg>';
+document.getElementById("veredicto").innerHTML=(malo?IC_AL+" zona cargada":IC_OK+" zona aceptable");
+document.getElementById("info").textContent=`${e} · media anual ${med.toFixed(1)} · pico ${mx.toFixed(1)}. Si tienes asma, prefiere estaciones con media más baja y revisa el mapa.`;}
+init();
+</script></body></html>

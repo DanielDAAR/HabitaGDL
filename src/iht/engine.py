@@ -2,13 +2,15 @@
 #
 # IHT = sum(w_i * S_i) / sum(w disponibles); S_i en 0-100 (min-max ZMG).
 # V1 calcula 5/8 dimensiones (cobertura=5): vivienda, servicios, salud,
-# educación, ambiente. Movilidad/seguridad/riesgos → NaN (datos S1-S2).
+# educación, ambiente. Movilidad/riesgos → NaN (datos S1-S2).
+# Seguridad se activa a 6/8 cuando existe crime_mun_year.parquet (SESNSP).
 # Cercanía salud/educación/aire = haversine vectorizado (localidad↔puntos).
 
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Dict
+from ..schemas.data_models import norm_mun
 
 DIMENSIONES = ["vivienda", "servicios", "movilidad", "salud",
                "educacion", "seguridad", "riesgos", "ambiente"]
@@ -179,7 +181,16 @@ def calcular_iht(pesos: Dict[str, float] = None) -> pd.DataFrame:
     except FileNotFoundError:
         dims["ambiente"] = np.nan
 
-    for d in ["movilidad", "seguridad", "riesgos"]:
+    try:
+        cr = pd.read_parquet(PROCESSED_DIR / "crime_mun_year.parquet")
+        ultimo = int(cr["anio"].max())
+        tot = cr[cr["anio"] == ultimo].set_index("municipio_norm")["tasa_100k"]
+        inv = _minmax(tot, invertir=True)  # menos delitos = más puntos
+        dims["seguridad"] = it["NOM_MUN"].map(norm_mun).map(inv)
+    except FileNotFoundError:
+        dims["seguridad"] = np.nan
+
+    for d in ["movilidad", "riesgos"]:
         dims[d] = np.nan
 
     w = pd.Series({d: pesos.get(d, 0) for d in DIMENSIONES})

@@ -6,3 +6,6 @@ lxml>=4.9.0
 pyarrow>=12.0.0
 numpy>=1.24.0
 geopandas>=1.0.0
+# API Fase 1 (MVP tesis: FastAPI lee Parquet directo, sin PostGIS)
+fastapi>=0.110.0
+uvicorn>=0.29.0
